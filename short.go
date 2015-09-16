@@ -2,7 +2,8 @@ package short
 
 import (
 	"reflect"
-	"strings"
+
+	"github.com/armon/go-radix"
 )
 
 // Short is a helper to return short, unique substrings when
@@ -16,8 +17,7 @@ import (
 // 7-character string and pass it around than it is to use
 // the full 128-bit value.
 type Short struct {
-	// TODO: replace with a radix tree.
-	data []string
+	tree *radix.Tree
 }
 
 // New creates a new shortener. It takes a slice of either
@@ -30,48 +30,60 @@ func New(data interface{}, field string) *Short {
 		panic("not a slice")
 	}
 
-	set := make([]string, v.Len())
+	tree := radix.New()
 
+	// Go over all of the data and insert our keys into
+	// the tree.
 	for i := 0; i < v.Len(); i++ {
 		val := reflect.Indirect(v.Index(i))
-
 		switch val.Kind() {
 		case reflect.String:
-			// If this is a []string we can short-circuit
-			return &Short{data.([]string)}
+			// No special handling required for strings
 
 		case reflect.Struct:
-			// Accept structs
+			// If we have a struct, we need to attempt to
+			// read the field value.
+			val = val.FieldByName(field)
+			if !val.IsValid() {
+				panic("missing struct field")
+			}
 
 		default:
 			panic("not a string or struct")
 		}
 
-		// Get the field value
-		fieldVal := val.FieldByName(field)
-		if !fieldVal.IsValid() {
-			panic("missing field")
-		}
-		set[i] = fieldVal.String()
+		// Insert the value into the tree
+		tree.Insert(val.String(), struct{}{})
 	}
 
-	return &Short{set}
+	return &Short{tree}
 }
 
 // min is the internal method used to retrieve the shortest
 // possible string, given the length constraint.
-//
-// TODO: obviously needs massive optimizations
 func (s *Short) min(in string, l int) string {
 	var result string
-OUTER:
 	for i := 0; ; i++ {
-		result += in[i*l : (i+1)*l]
-		for _, item := range s.data {
-			if strings.HasPrefix(item, result) {
-				continue OUTER
-			}
+		// Add the next chunk of characters
+		lidx := (i + 1) * l
+		if lidx > len(in) {
+			break
 		}
+		result += in[i*l : (i+1)*l]
+
+		// Walk the tree. If anything is found by the given
+		// result prefix, then the current result is ambiguous
+		// and we need to add more characters.
+		var ambiguous bool
+		s.tree.WalkPrefix(result, func(string, interface{}) bool {
+			ambiguous = true
+			return true
+		})
+		if ambiguous {
+			continue
+		}
+
+		// We got an unambiguous result, so return it
 		return result
 	}
 	return ""
@@ -87,7 +99,7 @@ func (s *Short) MinChunk(in string, l int) string {
 }
 
 // Min is used to return the shortest possible unique match
-// from the data set.
+// from the data set. If an empty string is returned, then
 func (s *Short) Min(in string) string {
 	return s.min(in, 1)
 }

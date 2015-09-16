@@ -1,4 +1,4 @@
-package short
+package shortstr
 
 import (
 	"reflect"

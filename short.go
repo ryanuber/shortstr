@@ -75,7 +75,13 @@ func (s *Short) min(in string, l int) string {
 		// result prefix, then the current result is ambiguous
 		// and we need to add more characters.
 		var ambiguous bool
-		s.tree.WalkPrefix(result, func(string, interface{}) bool {
+		s.tree.WalkPrefix(result, func(s string, _ interface{}) bool {
+			// If we find ourself in the tree, we can stop.
+			// Uniqueness is not guaranteed in this case.
+			if s == in {
+				return true
+			}
+
 			ambiguous = true
 			return true
 		})

@@ -69,7 +69,7 @@ func (s *Short) min(in string, l int) string {
 		if lidx > len(in) {
 			break
 		}
-		result += in[i*l : (i+1)*l]
+		result += in[i*l : lidx]
 
 		// Walk the tree. If anything is found by the given
 		// result prefix, then the current result is ambiguous
@@ -78,11 +78,7 @@ func (s *Short) min(in string, l int) string {
 		s.tree.WalkPrefix(result, func(s string, _ interface{}) bool {
 			// If we find ourself in the tree, we can stop.
 			// Uniqueness is not guaranteed in this case.
-			if s == in {
-				return true
-			}
-
-			ambiguous = true
+			ambiguous = (s != in)
 			return true
 		})
 		if ambiguous {
@@ -108,4 +104,27 @@ func (s *Short) MinChunk(in string, l int) string {
 // from the data set. If an empty string is returned, then
 func (s *Short) Min(in string) string {
 	return s.min(in, 1)
+}
+
+// Full is used to look up the full value of a given short
+// string in the data set. Returns the full string (if found),
+// and a bool indicator, which signals the compound condition
+// of the key both existing and being unique.
+func (s *Short) Full(in string) (string, bool) {
+	var found, ambiguous bool
+	var full string
+
+	// Walk the prefix of the given short string. If a single
+	// entry is found we can return safely, but if we find
+	// more then the lookup cannot resolve.
+	s.tree.WalkPrefix(in, func(s string, _ interface{}) bool {
+		if found {
+			ambiguous = true
+			return true
+		}
+		found = true
+		full = s
+		return false
+	})
+	return full, found && !ambiguous
 }

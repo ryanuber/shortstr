@@ -100,6 +100,16 @@ func TestInvalidSliceType(t *testing.T) {
 	New([]string{}, "nope")
 }
 
+func TestInvalidSliceTypePtr(t *testing.T) {
+	defer func(t *testing.T) {
+		r := recover()
+		if r == nil || r.(string) != "not a struct slice" {
+			t.Fatalf("expected slice error, got: %#v", r)
+		}
+	}(t)
+	New([]*string{}, "nope")
+}
+
 func TestInvalidFieldName(t *testing.T) {
 	defer func(t *testing.T) {
 		r := recover()

@@ -20,39 +20,54 @@ type Shortener struct {
 	tree *radix.Tree
 }
 
-// New creates a new shortener. It takes a slice of either
-// strings or structs, and an optional field name. If using
-// structs, the field name indicates which string field
-// should be used.
+// NewFromStrings creates a new Shortener from a string slice.
+func NewStrings(data []string) *Shortener {
+	tree := radix.New()
+	for _, s := range data {
+		tree.Insert(s, struct{}{})
+	}
+	return &Shortener{tree}
+}
+
+// New creates a new Shortener given a set of structs and a
+// field name to use for comparison.
 func New(data interface{}, field string) *Shortener {
+	// Check that we have a slice
 	v := reflect.ValueOf(data)
 	if v.Kind() != reflect.Slice {
 		panic("not a slice")
 	}
+	elem := v.Type().Elem()
 
+	// Check the slice type
+	switch elem.Kind() {
+	case reflect.Struct:
+	case reflect.Ptr:
+		elem = elem.Elem()
+		if elem.Kind() == reflect.Struct {
+			break
+		}
+		fallthrough
+	default:
+		panic("not a struct slice")
+	}
+
+	// Make sure our structs actually have the field
+	fieldVal, ok := elem.FieldByName(field)
+	if !ok {
+		panic("invalid struct field")
+	}
+	if fieldVal.Type.Kind() != reflect.String {
+		panic("struct field must be type string")
+	}
+
+	// Create the tree
 	tree := radix.New()
 
 	// Go over all of the data and insert our keys into
 	// the tree.
 	for i := 0; i < v.Len(); i++ {
-		val := reflect.Indirect(v.Index(i))
-		switch val.Kind() {
-		case reflect.String:
-			// No special handling required for strings
-
-		case reflect.Struct:
-			// If we have a struct, we need to attempt to
-			// read the field value.
-			val = val.FieldByName(field)
-			if !val.IsValid() {
-				panic("missing struct field")
-			}
-
-		default:
-			panic("not a string or struct")
-		}
-
-		// Insert the value into the tree
+		val := reflect.Indirect(v.Index(i)).FieldByName(field)
 		tree.Insert(val.String(), struct{}{})
 	}
 

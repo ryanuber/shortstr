@@ -6,17 +6,17 @@ import (
 	"github.com/armon/go-radix"
 )
 
-// Short is a helper to return short, unique substrings when
-// given a set of data to work with and the full value of
+// Shortener is a helper to return short, unique substrings
+// when given a set of data to work with and the full value of
 // the string to shorten. This can be useful to make indexes
-// more human-friendly while still retaining their
-// uniqueness and identifiability.
+// more human-friendly while still retaining their uniqueness
+// and identifiability.
 //
 // A good example of where to use this library is with user-
 // facing UUID's. It is often much easier to return a 6- or
 // 7-character string and pass it around than it is to use
 // the full 128-bit value.
-type Short struct {
+type Shortener struct {
 	tree *radix.Tree
 }
 
@@ -24,7 +24,7 @@ type Short struct {
 // strings or structs, and an optional field name. If using
 // structs, the field name indicates which string field
 // should be used.
-func New(data interface{}, field string) *Short {
+func New(data interface{}, field string) *Shortener {
 	v := reflect.ValueOf(data)
 	if v.Kind() != reflect.Slice {
 		panic("not a slice")
@@ -56,12 +56,12 @@ func New(data interface{}, field string) *Short {
 		tree.Insert(val.String(), struct{}{})
 	}
 
-	return &Short{tree}
+	return &Shortener{tree}
 }
 
 // min is the internal method used to retrieve the shortest
 // possible string, given the length constraint.
-func (s *Short) min(in string, l int) string {
+func (s *Shortener) min(in string, l int) string {
 	var result string
 	for i := 0; ; i++ {
 		// Add the next chunk of characters
@@ -71,16 +71,26 @@ func (s *Short) min(in string, l int) string {
 		}
 		result += in[i*l : lidx]
 
-		// Walk the tree. If anything is found by the given
-		// result prefix, then the current result is ambiguous
-		// and we need to add more characters.
-		var ambiguous bool
+		// Walk the tree. If we find more than a single
+		// result, then the result would be ambiguous.
+		var ambiguous, found bool
 		s.tree.WalkPrefix(result, func(s string, _ interface{}) bool {
-			// If we find ourself in the tree, we can stop.
-			// Uniqueness is not guaranteed in this case.
-			ambiguous = (s != in)
-			return true
+			if found {
+				ambiguous = true
+				return true
+			}
+			found = true
+			return false
 		})
+
+		// If the prefix didn't match anything, then return
+		// early as the prefix isn't in the data set.
+		if !found {
+			return ""
+		}
+
+		// If multiple entries were found for the prefix,
+		// continue to add more characters to disambiguate.
 		if ambiguous {
 			continue
 		}
@@ -91,40 +101,54 @@ func (s *Short) min(in string, l int) string {
 	return ""
 }
 
-// MinChunk is used to return the shortest substring in the
-// chunk size provided. This means the minimum returned length
-// is l, and the max is a multiple thereof. This is useful
-// for keeping churn rate low with a frequently changing
-// data set.
-func (s *Short) MinChunk(in string, l int) string {
+// ShortestChunk is used to return the shortest substring in
+// the chunk size provided. This means the minimum returned
+// length is l, and the max is a multiple thereof. This is
+// useful for keeping churn rate low with a frequently
+// changing data set.
+//
+// If the result is an empty string, then shortening would
+// create an ambiguous result (non-unique in the set).
+func (s *Shortener) ShortestChunk(in string, l int) string {
 	return s.min(in, l)
 }
 
-// Min is used to return the shortest possible unique match
-// from the data set. If an empty string is returned, then
-func (s *Short) Min(in string) string {
+// Shortest is used to return the shortest possible unique
+// match from the data set.
+//
+// If the result is an empty string, then shortening would
+// create an ambiguous result (non-unique in the set).
+func (s *Shortener) Shortest(in string) string {
 	return s.min(in, 1)
 }
 
-// Full is used to look up the full value of a given short
-// string in the data set. Returns the full string (if found),
-// and a bool indicator, which signals the compound condition
-// of the key both existing and being unique.
-func (s *Short) Full(in string) (string, bool) {
-	var found, ambiguous bool
+// Expand is used to look up the full value of a given short
+// string in the data set.
+//
+// If the result is an empty string, then expanding is not
+// possible due to either the provided prefix missing in the
+// data set, or multiple entries sharing the same prefix.
+func (s *Shortener) Expand(in string) string {
+	var ambiguous bool
 	var full string
 
 	// Walk the prefix of the given short string. If a single
 	// entry is found we can return safely, but if we find
 	// more then the lookup cannot resolve.
 	s.tree.WalkPrefix(in, func(s string, _ interface{}) bool {
-		if found {
+		if full != "" {
 			ambiguous = true
 			return true
 		}
-		found = true
 		full = s
 		return false
 	})
-	return full, found && !ambiguous
+
+	// Check if we found multiple entries by the same prefix.
+	if ambiguous {
+		return ""
+	}
+
+	// A single match was found, so return it.
+	return full
 }

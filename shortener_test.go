@@ -118,7 +118,7 @@ func TestInvalidFieldName(t *testing.T) {
 		}
 	}(t)
 	type thing struct{}
-	New([]thing{}, "")
+	New([]thing{}, "nope")
 }
 
 func TestInvalidFieldNamePtr(t *testing.T) {

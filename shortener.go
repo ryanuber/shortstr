@@ -20,7 +20,7 @@ type Shortener struct {
 	tree *radix.Tree
 }
 
-// NewFromStrings creates a new Shortener from a string slice.
+// NewStrings creates a new Shortener from a string slice.
 func NewStrings(data []string) *Shortener {
 	tree := radix.New()
 	for _, s := range data {
@@ -30,7 +30,9 @@ func NewStrings(data []string) *Shortener {
 }
 
 // New creates a new Shortener given a set of structs and a
-// field name to use for comparison.
+// field name to use for comparison. If the input is not a
+// slice of structs (or struct pointers), or the specified
+// field does not exist in the struct, New will panic.
 func New(data interface{}, field string) *Shortener {
 	// Check that we have a slice
 	v := reflect.ValueOf(data)

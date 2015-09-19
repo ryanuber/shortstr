@@ -70,7 +70,6 @@ func New(data interface{}, field string) *Shortener {
 		val := reflect.Indirect(v.Index(i)).FieldByName(field)
 		tree.Insert(val.String(), struct{}{})
 	}
-
 	return &Shortener{tree}
 }
 

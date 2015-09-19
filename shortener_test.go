@@ -5,22 +5,48 @@ import (
 )
 
 func checkBasic(t *testing.T, s *Shortener) {
+	// Returns the shortest possible string
 	if res := s.Shortest("aaaa"); res != "aaa" {
 		t.Fatalf("expect %q, got %q", "aaa", res)
 	}
+
+	// Returns nothing on no match
 	if res := s.Shortest("nope"); res != "" {
 		t.Fatalf("expect %q, got %q", "", res)
 	}
-	if res := s.ShortestChunk("aaaa", 4); res != "aaaa" {
-		t.Fatalf("expect %q, got %q", "aaaa", res)
-	}
-	if res := s.ShortestChunk("nope", 4); res != "" {
+
+	// Returns nothing if ambiguous
+	if res := s.Shortest("aa"); res != "" {
 		t.Fatalf("expect %q, got %q", "", res)
 	}
+
+	// Returns the shortest chunked match
+	if res := s.ShortestChunk("aaaa", 2); res != "aaaa" {
+		t.Fatalf("expect %q, got %q", "aaaa", res)
+	}
+
+	// Returns nothing on no match
+	if res := s.ShortestChunk("nope", 2); res != "" {
+		t.Fatalf("expect %q, got %q", "", res)
+	}
+
+	// Returns nothing if ambiguous
+	if res := s.ShortestChunk("aa", 2); res != "" {
+		t.Fatalf("expect %q, got %q", "", res)
+	}
+
+	// Returns the expanded version of the string
 	if res := s.Expand("aaa"); res != "aaaa" {
 		t.Fatalf("expect %q, got %q", "aaaa", res)
 	}
+
+	// Returns nothing if no matches
 	if res := s.Expand("nope"); res != "" {
+		t.Fatalf("expect %q, got %q", "", res)
+	}
+
+	// Returns nothing if multiple matches
+	if res := s.Expand("aa"); res != "" {
 		t.Fatalf("expect %q, got %q", "", res)
 	}
 }
@@ -42,7 +68,7 @@ func TestStructValues(t *testing.T) {
 	checkBasic(t, s)
 }
 
-func TestStructPointers(t *testing.T) {
+func TestStructPtrs(t *testing.T) {
 	type thing struct {
 		value string
 	}
@@ -71,7 +97,7 @@ func TestInvalidSliceType(t *testing.T) {
 			t.Fatalf("expected slice error, got: %#v", r)
 		}
 	}(t)
-	New([]*string{}, "nope")
+	New([]string{}, "nope")
 }
 
 func TestInvalidFieldName(t *testing.T) {
@@ -107,4 +133,17 @@ func TestInvalidFieldType(t *testing.T) {
 		bad int
 	}
 	New([]thing{}, "bad")
+}
+
+func TestInvalidFieldTypePtr(t *testing.T) {
+	defer func(t *testing.T) {
+		r := recover()
+		if r == nil || r.(string) != "struct field must be type string" {
+			t.Fatalf("expected field type error, got: %#v", r)
+		}
+	}(t)
+	type thing struct {
+		bad int
+	}
+	New([]*thing{}, "bad")
 }

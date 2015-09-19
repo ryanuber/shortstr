@@ -42,7 +42,7 @@ func main() {
         "aabbbb",
         "aacccc",
     }
-    s := shortstr.New(data)
+    s := shortstr.NewStrings(data)
     println(s.Shortest("aaaaaa"))         // "aaa"
     println(s.ShortestChunk("aabbbb", 4)) // "aabb"
     println(s.Expand("aac"))              // "aacccc"

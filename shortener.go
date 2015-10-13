@@ -95,11 +95,7 @@ func (s *Shortener) Add(item interface{}) {
 	if !ok {
 		v = reflect.ValueOf(item)
 	}
-
-	// Check that the type matches
-	if v.Type() != s.dataType {
-		panic(fmt.Sprintf("type must be %v, got %v", s.dataType, v.Type()))
-	}
+	s.checkType(v)
 
 	// Handle strings
 	if v.Kind() == reflect.String {
@@ -110,6 +106,30 @@ func (s *Shortener) Add(item interface{}) {
 	// Handle structs
 	v = reflect.Indirect(v)
 	s.tree.Insert(v.FieldByName(s.field).String(), struct{}{})
+}
+
+// Delete is used to remove an item from the data set.
+func (s *Shortener) Delete(item interface{}) {
+	v := reflect.ValueOf(item)
+	s.checkType(v)
+
+	// Handle strings
+	if v.Kind() == reflect.String {
+		s.tree.Delete(v.String())
+		return
+	}
+
+	// Handle structs
+	v = reflect.Indirect(v)
+	s.tree.Delete(v.FieldByName(s.field).String())
+}
+
+// checkType asserts that the provided type matches what the shortener was
+// created with, and panics if the types differ.
+func (s *Shortener) checkType(v reflect.Value) {
+	if v.Type() != s.dataType {
+		panic(fmt.Sprintf("type must be %v, got %v", s.dataType, v.Type()))
+	}
 }
 
 // min is the internal method used to retrieve the shortest possible string,

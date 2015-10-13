@@ -172,7 +172,15 @@ func TestAddInvalidType(t *testing.T) {
 func TestAdd(t *testing.T) {
 	s := NewStrings([]string{"foo", "bar"})
 	s.Add("baz")
-	if s.Shortest("baz") != "baz" {
+	if _, ok := s.tree.Get("baz"); !ok {
 		t.Fatalf("missing added entry")
+	}
+}
+
+func TestRemove(t *testing.T) {
+	s := NewStrings([]string{"foo", "bar"})
+	s.Delete("bar")
+	if _, ok := s.tree.Get("bar"); ok {
+		t.Fatalf("should remove entry")
 	}
 }

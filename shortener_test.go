@@ -157,3 +157,22 @@ func TestInvalidFieldTypePtr(t *testing.T) {
 	}
 	New([]*thing{}, "bad")
 }
+
+func TestAddInvalidType(t *testing.T) {
+	defer func(t *testing.T) {
+		r := recover()
+		if r == nil || r.(string) != "type must be string, got struct {}" {
+			t.Fatalf("expected data type error, got: %#v", r)
+		}
+	}(t)
+	s := NewStrings([]string{})
+	s.Add(struct{}{})
+}
+
+func TestAdd(t *testing.T) {
+	s := NewStrings([]string{"foo", "bar"})
+	s.Add("baz")
+	if s.Shortest("baz") != "baz" {
+		t.Fatalf("missing added entry")
+	}
+}

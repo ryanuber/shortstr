@@ -1,6 +1,7 @@
 package shortstr
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/armon/go-radix"
@@ -15,7 +16,9 @@ import (
 // is often much easier to return a 6- or 7-character string and pass it around
 // than it is to use the full 128-bit value.
 type Shortener struct {
-	tree *radix.Tree
+	tree     *radix.Tree
+	field    string
+	dataType reflect.Type
 }
 
 // New creates a new Shortener given a set of structs and a field name to use
@@ -29,21 +32,28 @@ func New(data interface{}, field string) *Shortener {
 	}
 	elem := v.Type().Elem()
 
+	var fieldVal reflect.StructField
+	var ok bool
+
 	// Check the slice type
 	switch elem.Kind() {
 	case reflect.Struct:
+		// Struct values are allowed
+		fieldVal, ok = elem.FieldByName(field)
+
 	case reflect.Ptr:
-		elem = elem.Elem()
-		if elem.Kind() == reflect.Struct {
+		// Struct pointers are allowed
+		if e := elem.Elem(); e.Kind() == reflect.Struct {
+			fieldVal, ok = e.FieldByName(field)
 			break
 		}
 		fallthrough
+
 	default:
 		panic("not a struct slice")
 	}
 
 	// Make sure our structs actually have the field
-	fieldVal, ok := elem.FieldByName(field)
 	if !ok {
 		panic("invalid struct field")
 	}
@@ -51,16 +61,19 @@ func New(data interface{}, field string) *Shortener {
 		panic("struct field must be type string")
 	}
 
-	// Create the tree
-	tree := radix.New()
-
-	// Go over all of the data and insert our keys into
-	// the tree.
-	for i := 0; i < v.Len(); i++ {
-		val := reflect.Indirect(v.Index(i)).FieldByName(field)
-		tree.Insert(val.String(), struct{}{})
+	// Create the shortener
+	s := &Shortener{
+		tree:     radix.New(),
+		field:    field,
+		dataType: elem,
 	}
-	return &Shortener{tree}
+
+	// Go over all of the data and insert our keys into the tree.
+	for i := 0; i < v.Len(); i++ {
+		s.Add(v.Index(i))
+	}
+
+	return s
 }
 
 // NewStrings creates a new Shortener from a string slice.
@@ -69,7 +82,34 @@ func NewStrings(data []string) *Shortener {
 	for _, s := range data {
 		tree.Insert(s, struct{}{})
 	}
-	return &Shortener{tree}
+	return &Shortener{
+		tree:     tree,
+		dataType: reflect.TypeOf(""),
+	}
+}
+
+// Add adds an item to the shortener. If the value given is not of the same
+// type of the elements in the original data set, Add panics.
+func (s *Shortener) Add(item interface{}) {
+	v, ok := item.(reflect.Value)
+	if !ok {
+		v = reflect.ValueOf(item)
+	}
+
+	// Check that the type matches
+	if v.Type() != s.dataType {
+		panic(fmt.Sprintf("type must be %v, got %v", s.dataType, v.Type()))
+	}
+
+	// Handle strings
+	if v.Kind() == reflect.String {
+		s.tree.Insert(v.String(), struct{}{})
+		return
+	}
+
+	// Handle structs
+	v = reflect.Indirect(v)
+	s.tree.Insert(v.FieldByName(s.field).String(), struct{}{})
 }
 
 // min is the internal method used to retrieve the shortest possible string,

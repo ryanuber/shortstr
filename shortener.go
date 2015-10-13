@@ -70,7 +70,7 @@ func New(data interface{}, field string) *Shortener {
 
 	// Go over all of the data and insert our keys into the tree.
 	for i := 0; i < v.Len(); i++ {
-		s.Add(v.Index(i))
+		s.Insert(v.Index(i))
 	}
 
 	return s
@@ -88,9 +88,9 @@ func NewStrings(data []string) *Shortener {
 	}
 }
 
-// Add adds an item to the shortener. If the value given is not of the same
+// Insert adds an item to the shortener. If the value given is not of the same
 // type of the elements in the original data set, Add panics.
-func (s *Shortener) Add(item interface{}) {
+func (s *Shortener) Insert(item interface{}) {
 	v, ok := item.(reflect.Value)
 	if !ok {
 		v = reflect.ValueOf(item)

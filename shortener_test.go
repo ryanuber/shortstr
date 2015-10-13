@@ -158,7 +158,15 @@ func TestInvalidFieldTypePtr(t *testing.T) {
 	New([]*thing{}, "bad")
 }
 
-func TestAddInvalidType(t *testing.T) {
+func TestInsert(t *testing.T) {
+	s := NewStrings([]string{"foo", "bar"})
+	s.Insert("baz")
+	if _, ok := s.tree.Get("baz"); !ok {
+		t.Fatalf("missing added entry")
+	}
+}
+
+func TestInsertInvalidType(t *testing.T) {
 	defer func(t *testing.T) {
 		r := recover()
 		if r == nil || r.(string) != "type must be string, got struct {}" {
@@ -166,21 +174,24 @@ func TestAddInvalidType(t *testing.T) {
 		}
 	}(t)
 	s := NewStrings([]string{})
-	s.Add(struct{}{})
+	s.Insert(struct{}{})
 }
 
-func TestAdd(t *testing.T) {
-	s := NewStrings([]string{"foo", "bar"})
-	s.Add("baz")
-	if _, ok := s.tree.Get("baz"); !ok {
-		t.Fatalf("missing added entry")
-	}
-}
-
-func TestRemove(t *testing.T) {
+func TestDelete(t *testing.T) {
 	s := NewStrings([]string{"foo", "bar"})
 	s.Delete("bar")
 	if _, ok := s.tree.Get("bar"); ok {
 		t.Fatalf("should remove entry")
 	}
+}
+
+func TestDeleteInvalidType(t *testing.T) {
+	defer func(t *testing.T) {
+		r := recover()
+		if r == nil || r.(string) != "type must be string, got struct {}" {
+			t.Fatalf("expected data type error, got: %#v", r)
+		}
+	}(t)
+	s := NewStrings([]string{})
+	s.Delete(struct{}{})
 }
